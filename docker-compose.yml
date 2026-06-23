@@ -1,0 +1,25 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: waffle-alert-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_DATABASE: waffle_alert
+      MYSQL_USER: alert
+      MYSQL_PASSWORD: alertpw
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - waffle-alert-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-palertpw"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  waffle-alert-mysql-data:
