@@ -3,6 +3,7 @@ plugins {
     kotlin("plugin.spring") version "2.3.0"
     id("org.springframework.boot") version "4.0.7"
     id("io.spring.dependency-management") version "1.1.7"
+    id("org.jlleitschuh.gradle.ktlint") version "13.0.0"
     kotlin("plugin.jpa") version "2.3.0"
 }
 
@@ -18,6 +19,22 @@ java {
 
 repositories {
     mavenCentral()
+    maven {
+        url = uri("https://maven.pkg.github.com/wafflestudio/spring-waffle")
+        credentials {
+            username = "wafflestudio"
+            password = findProperty("gpr.key") as String?
+                ?: System.getenv("GITHUB_TOKEN")
+                ?: runCatching {
+                    ProcessBuilder("gh", "auth", "token")
+                        .start()
+                        .inputStream
+                        .bufferedReader()
+                        .readText()
+                        .trim()
+                }.getOrDefault("")
+        }
+    }
 }
 
 extra["springCloudVersion"] = "2025.1.2"
@@ -40,6 +57,11 @@ dependencies {
     // ── Kotlin 필수 ──────────────────────────────────
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+
+    // ── 와플 공통 (OCI Vault secret 주입) ────────────
+    // dev/prod 프로파일에서 DB·Slack secret을 OCI Vault에서 주입받는다.
+    // GitHub Packages에서 받으며 빌드 시 GITHUB_TOKEN / gh auth token 필요 (read:packages).
+    implementation("com.wafflestudio.spring:spring-boot-starter-waffle-oci-vault:2.1.0")
 
     // ── OCI SDK (Prometheus 밖 source 직접 조회) ─────
     implementation("com.oracle.oci.sdk:oci-java-sdk-monitoring:${property("ociSdkVersion")}")
@@ -84,4 +106,8 @@ allOpen {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.bootJar {
+    archiveFileName.set("waffle-alert.jar")
 }

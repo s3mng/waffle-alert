@@ -47,29 +47,9 @@ spring:
 
 ---
 # ───────────────────────────────────────────────
-# dev: dev DB. 값은 OCI Vault에서 주입 (snutt 패턴)
-# TODO: spring-boot-starter-waffle-oci-vault 추가 + dev secret OCID 채우기
-# ───────────────────────────────────────────────
-spring:
-  config:
-    activate:
-      on-profile: dev
-  datasource:
-    url:                          # Vault 주입
-    username:                     # Vault 주입
-    password:                     # Vault 주입
-    driver-class-name: com.mysql.cj.jdbc.Driver
-# oci:
-#   auth:
-#     type: auto                  # 쿠버네티스: config 실패 시 instance_principal
-#   vault:
-#     secret-ids: ocid1.vaultsecret...   # TODO: dev secret OCID
-#     region: ap-chuncheon-1
-
----
-# ───────────────────────────────────────────────
-# prod: prod DB. 값은 OCI Vault에서 주입
-# TODO: prod secret OCID 채우기
+# prod: DB 등 secret은 OCI Vault에서 주입 (snutt 패턴)
+# oci-vault starter가 secret-ids의 OCID에서 datasource 값을 주입한다.
+# 인증은 starter가 자동 처리 (쿠버네티스 Pod는 instance_principal, Dynamic Group + Policy 필요).
 # ───────────────────────────────────────────────
 spring:
   config:
@@ -80,9 +60,8 @@ spring:
     username:                     # Vault 주입
     password:                     # Vault 주입
     driver-class-name: com.mysql.cj.jdbc.Driver
-# oci:
-#   auth:
-#     type: auto
-#   vault:
-#     secret-ids: ocid1.vaultsecret...   # TODO: prod secret OCID
-#     region: ap-chuncheon-1
+
+oci:
+  vault:
+    secret-ids: ocid1.vaultsecret.oc1.ap-chuncheon-1.amaaaaaat2m5lbqadjrtaoxv4b2kmdicuk4ivfhhqqr4j2g2ecmqe4boknxq
+    region: ap-chuncheon-1

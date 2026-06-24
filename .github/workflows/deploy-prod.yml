@@ -1,0 +1,41 @@
+name: Deploy-prod
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Build & Push to OCIR
+    runs-on: ubuntu-24.04-arm
+
+    env:
+      IMAGE_TAG: ${{ github.run_number }}
+      OCIR_REGISTRY: yny.ocir.io
+      OCIR_NAMESPACE: ax1dvc8vmenm
+      OCIR_REPOSITORY: waffle-alert-prod/waffle-alert
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # TODO(외부설정): OCI_AUTH_TOKEN 을 레포 Settings > Secrets 에 등록해야 함.
+      #   - OCIR push 용 auth token. OCI 콘솔에서 발급.
+      #   - 사용자명도 실제 deployer 계정으로 교체 필요 (members/<deployer>).
+      - name: Login to OCIR
+        run: echo "${{ secrets.OCI_AUTH_TOKEN }}" | docker login $OCIR_REGISTRY -u $OCIR_NAMESPACE/members/waffle-deployer --password-stdin
+
+      - name: Build & push image
+        run: |
+          echo "${{ github.token }}" > .github_token
+          docker build \
+            --secret id=github_token,src=./.github_token \
+            -t $OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPOSITORY:$IMAGE_TAG \
+            -t $OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPOSITORY:latest \
+            --platform linux/arm64 \
+            .
+          rm -f .github_token
+          docker push $OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPOSITORY:$IMAGE_TAG
+          docker push $OCIR_REGISTRY/$OCIR_NAMESPACE/$OCIR_REPOSITORY:latest
+
+      # 이미지 push 후 waffle-world-oci의 이미지 태그 갱신은 별도 ocir-image-updater 레포가 처리한다.
