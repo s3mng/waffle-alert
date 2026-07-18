@@ -28,6 +28,20 @@ discord:
     oci-cost: 1525123822322188308
     oci-monitoring: 1525123771420377200
 
+alert:
+  oci:
+    auth-type: config_file          # local 기본. prod 프로파일에서 instance_principal로 오버라이드
+    config-file-path: ~/.oci/config
+    profile: DEFAULT
+    tenant-id: ${OCI_TENANT_ID:}    # ocid1.tenancy.oc1..xxxx
+    region: ap-chuncheon-1
+  oci-cost:
+    spike:
+      settle-lag-days: 1            # 마지막 N일은 비용 데이터가 불완전해 판단에서 제외 (48h 지연 대비 안전값)
+      warning-multiplier: 1.5       # 직전 7일 평균 대비 이 배수 이상이면 WARNING
+      critical-multiplier: 2.0      # 이 배수 이상이면 CRITICAL
+      min-average-amount: 5         # 직전 7일 평균이 이 값 미만이면 소액 오탐 방지로 판단 스킵 (테넌시 통화)
+
 management:
   endpoints:
     web:
@@ -75,3 +89,8 @@ oci:
 
 discord:
   bot-token:                        # Vault 주입. channel-ids는 고정값이라 root discord.channel-ids 그대로 사용
+
+alert:
+  oci:
+    auth-type: instance_principal   # 쿠버네티스 Pod에서 instance principal 인증 (Dynamic Group + Policy 필요)
+    tenant-id:                      # Vault 주입 (또는 고정 OCID)
