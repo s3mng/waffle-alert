@@ -40,7 +40,7 @@ alert:
       settle-lag-days: 1            # 마지막 N일은 비용 데이터가 불완전해 판단에서 제외 (48h 지연 대비 안전값)
       warning-multiplier: 1.5       # 직전 7일 평균 대비 이 배수 이상이면 WARNING
       critical-multiplier: 2.0      # 이 배수 이상이면 CRITICAL
-      min-average-amount: 5         # 직전 7일 평균이 이 값 미만이면 소액 오탐 방지로 판단 스킵 (테넌시 통화)
+      min-average-amount: 0.5       # 직전 7일 평균이 이 값 미만이면 소액 오탐 방지로 판단 스킵 (테넌시 통화 SGD, 하루 ~1)
 
 management:
   endpoints:

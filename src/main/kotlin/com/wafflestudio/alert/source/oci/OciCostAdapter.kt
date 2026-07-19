@@ -5,10 +5,13 @@ import com.oracle.bmc.usageapi.model.RequestSummarizedUsagesDetails
 import com.oracle.bmc.usageapi.requests.RequestSummarizedUsagesRequest
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
 import java.util.Date
 
 // TODO: OCI Cost/Usage API 조회 - daily/hourly 비용 집계
@@ -19,6 +22,12 @@ data class CostBucket(
     val amount : BigDecimal,
     val currency: String,
     )
+
+data class WeeklyCost(
+    val weekStart: LocalDate,
+    val amount: BigDecimal,
+    val currency: String,
+)
 
 @Component
 class OciCostAdapter(
@@ -32,6 +41,30 @@ class OciCostAdapter(
         val start = end.minus(days, ChronoUnit.DAYS)
 
         return summarize(start,end, RequestSummarizedUsagesDetails.Granularity.Daily)
+    }
+
+
+    fun fetchWeeklyCosts(weeks: Long): List<WeeklyCost> {
+        require(weeks in 1..12) { "최대 12주"}
+
+        val daily = fetchDailyCosts((weeks + 1) * 7)
+        val today = LocalDate.now(ZoneOffset.UTC)
+
+        return daily
+            .groupBy {
+                it.periodStart.atZone(ZoneOffset.UTC).toLocalDate()
+                    .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            }
+            .filter { (weekStart, _) -> weekStart.plusDays(6).isBefore(today) } // 7일 다 지난 완결된 주만
+            .map { (weekStart, days) ->
+                WeeklyCost(
+                    weekStart = weekStart,
+                    amount = days.sumOf { it.amount },
+                    currency = days.firstOrNull()?.currency ?: "",
+                )
+            }
+            .sortedBy { it.weekStart }
+            .takeLast(weeks.toInt())
     }
 
     fun fetchMonthlyCosts(months: Long): List<CostBucket> {

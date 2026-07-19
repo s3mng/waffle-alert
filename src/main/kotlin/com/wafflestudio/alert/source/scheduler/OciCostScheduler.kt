@@ -26,6 +26,16 @@ class OciCostScheduler(
         }
     }
 
-    // TODO(요약): 매주 월요일 9시(KST) - 최근 3주 주별 + 3달 월별 추이 요약 발송
-    //   @Scheduled(cron = "0 0 9 * * MON", zone = "Asia/Seoul")
+    /** 매주 월요일 아침 9시(KST) - 최근 3주 주별 + 3달 월별 비용 요약 발송 */
+    @Scheduled(cron = "0 0 9 * * MON", zone = "Asia/Seoul")
+    fun sendWeeklySummary() {
+        try {
+            val weekly = adapter.fetchWeeklyCosts(3)
+            val monthly = adapter.fetchMonthlyCosts(3)
+            val event = evaluator.buildWeeklySummary(weekly, monthly)
+            ingestionService.ingest(event)
+        } catch (e: Exception) {
+            log.error("OCI cost weekly summary failed", e)
+        }
+    }
 }

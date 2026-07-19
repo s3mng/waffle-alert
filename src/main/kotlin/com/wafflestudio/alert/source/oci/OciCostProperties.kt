@@ -15,6 +15,6 @@ class OciCostProperties {
         var settleLagDays : Int = 1
         var warningMultiplier: BigDecimal = BigDecimal("1.5")
         var criticalMultiplier: BigDecimal = BigDecimal("2.0")
-        var minAverageAmount: BigDecimal = BigDecimal("5")
+        var minAverageAmount: BigDecimal = BigDecimal("0.5")
     }
 }

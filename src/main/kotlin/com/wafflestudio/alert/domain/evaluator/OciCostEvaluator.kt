@@ -6,6 +6,7 @@ import com.wafflestudio.alert.domain.model.AlertStatus
 import com.wafflestudio.alert.domain.model.Severity
 import com.wafflestudio.alert.source.oci.CostBucket
 import com.wafflestudio.alert.source.oci.OciCostProperties
+import com.wafflestudio.alert.source.oci.WeeklyCost
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -63,6 +64,40 @@ class OciCostEvaluator(
             team = "infra",
         )
 
+    }
+
+    fun buildWeeklySummary(weekly: List<WeeklyCost>, monthly: List<CostBucket>): AlertEvent {
+        val weekFmt = DateTimeFormatter.ofPattern("MM/dd")
+        val monthFmt = DateTimeFormatter.ofPattern("yyyy-MM").withZone(ZoneOffset.UTC)
+
+        val weeklyLines = weekly.joinToString("\n") { w ->
+            val end = w.weekStart.plusDays(6)
+            "  ${w.weekStart.format(weekFmt)}~${end.format(weekFmt)}: " +
+                "${w.amount.setScale(2, RoundingMode.HALF_UP)} ${w.currency}"
+        }
+        val monthlyLines = monthly.joinToString("\n") { m ->
+            "  ${monthFmt.format(m.periodStart)}: " +
+                "${m.amount.setScale(2, RoundingMode.HALF_UP)} ${m.currency}"
+        }
+
+        val description = buildString {
+            appendLine("[주별 추이 (최근 ${weekly.size}주)]")
+            appendLine(weeklyLines)
+            appendLine()
+            appendLine("[월별 추이 (최근 ${monthly.size}달)]")
+            append(monthlyLines)
+        }
+
+        return AlertEvent(
+            source = AlertSource.OCI_COST,
+            status = AlertStatus.FIRING,
+            severity = Severity.INFO,
+            fingerprint = "oci-cost:summary:${weekly.lastOrNull()?.weekStart}",
+            ruleName = "oci-cost-weekly-summary",
+            title = "OCI 비용 주간 요약",
+            description = description,
+            team = null,
+        )
     }
 
 }
