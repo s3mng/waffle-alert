@@ -26,8 +26,9 @@ class OciCostScheduler(
         }
     }
 
-    /** 매주 월요일 아침 9시(KST) - 최근 3주 주별 + 3달 월별 비용 요약 발송 */
-    @Scheduled(cron = "0 0 9 * * MON", zone = "Asia/Seoul")
+    /** 매주 수요일 아침 9시(KST) - 최근 3주 주별 + 3달 월별 비용 요약 발송.
+     *  월요일이 아닌 이유: 직전 주 일요일 비용이 최대 48h 지연될 수 있어, 72h 정착된 수요일에 발송 */
+    @Scheduled(cron = "0 0 9 * * WED", zone = "Asia/Seoul")
     fun sendWeeklySummary() {
         try {
             val weekly = adapter.fetchWeeklyCosts(3)
