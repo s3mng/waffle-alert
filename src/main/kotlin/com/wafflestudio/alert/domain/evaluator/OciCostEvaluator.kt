@@ -23,7 +23,7 @@ class OciCostEvaluator(
     private val log = LoggerFactory.getLogger(javaClass)
     private val dateFmt = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneOffset.UTC)
 
-    fun evaluateSpike(daily : List<CostBucket>): AlertEvent? {
+    fun evaluateSpike(daily: List<CostBucket>): AlertEvent? {
         val spike = props.spike
         val needed = spike.settleLagDays + 1 + 7
 
@@ -32,23 +32,25 @@ class OciCostEvaluator(
             return null
         }
 
-        val settled = daily.dropLast(spike.settleLagDays)// 애매한거 삭제. 어제꺼는 데이터가 불완전할수도..
+        val settled = daily.dropLast(spike.settleLagDays) // 애매한거 삭제. 어제꺼는 데이터가 불완전할수도..
         val target = settled.last() // 그저께꺼 판단
 
         val baseline = settled.dropLast(1).takeLast(7)
 
-        val avg = baseline.sumOf { it.amount }
-            .divide(BigDecimal(baseline.size), 4 , RoundingMode.HALF_UP)
+        val avg =
+            baseline
+                .sumOf { it.amount }
+                .divide(BigDecimal(baseline.size), 4, RoundingMode.HALF_UP)
 
         if (avg < spike.minAverageAmount) return null
 
-
-        val ratio = target.amount.divide(avg,4,RoundingMode.HALF_UP)
-        val severity = when {
-            ratio >= spike.criticalMultiplier -> Severity.CRITICAL
-            ratio >= spike.warningMultiplier -> Severity.WARNING
-            else -> return null   // 임계 미달이면 알림 없음
-        }
+        val ratio = target.amount.divide(avg, 4, RoundingMode.HALF_UP)
+        val severity =
+            when {
+                ratio >= spike.criticalMultiplier -> Severity.CRITICAL
+                ratio >= spike.warningMultiplier -> Severity.WARNING
+                else -> return null // 임계 미달이면 알림 없음
+            }
 
         val day = dateFmt.format(target.periodStart)
         return AlertEvent(
@@ -58,35 +60,41 @@ class OciCostEvaluator(
             fingerprint = "oci-cost:spike:$day",
             ruleName = "oci-cost-spike",
             title = "OCI 일일 비용 급증",
-            description = "$day 비용 ${target.amount.setScale(2, RoundingMode.HALF_UP)} ${target.currency} " +
+            description =
+                "$day 비용 ${target.amount.setScale(2, RoundingMode.HALF_UP)} ${target.currency} " +
                     "(직전 7일 평균 ${avg.setScale(2, RoundingMode.HALF_UP)} 대비 " +
                     "${ratio.setScale(2, RoundingMode.HALF_UP)}배)",
             team = "infra",
         )
-
     }
 
-    fun buildWeeklySummary(weekly: List<WeeklyCost>, monthly: List<CostBucket>): AlertEvent {
+    fun buildWeeklySummary(
+        weekly: List<WeeklyCost>,
+        monthly: List<CostBucket>,
+    ): AlertEvent {
         val weekFmt = DateTimeFormatter.ofPattern("MM/dd")
         val monthFmt = DateTimeFormatter.ofPattern("yyyy-MM").withZone(ZoneOffset.UTC)
 
-        val weeklyLines = weekly.joinToString("\n") { w ->
-            val end = w.weekStart.plusDays(6)
-            "  ${w.weekStart.format(weekFmt)}~${end.format(weekFmt)}: " +
-                "${w.amount.setScale(2, RoundingMode.HALF_UP)} ${w.currency}"
-        }
-        val monthlyLines = monthly.joinToString("\n") { m ->
-            "  ${monthFmt.format(m.periodStart)}: " +
-                "${m.amount.setScale(2, RoundingMode.HALF_UP)} ${m.currency}"
-        }
+        val weeklyLines =
+            weekly.joinToString("\n") { w ->
+                val end = w.weekStart.plusDays(6)
+                "  ${w.weekStart.format(weekFmt)}~${end.format(weekFmt)}: " +
+                    "${w.amount.setScale(2, RoundingMode.HALF_UP)} ${w.currency}"
+            }
+        val monthlyLines =
+            monthly.joinToString("\n") { m ->
+                "  ${monthFmt.format(m.periodStart)}: " +
+                    "${m.amount.setScale(2, RoundingMode.HALF_UP)} ${m.currency}"
+            }
 
-        val description = buildString {
-            appendLine("[주별 추이 (최근 ${weekly.size}주)]")
-            appendLine(weeklyLines)
-            appendLine()
-            appendLine("[월별 추이 (최근 ${monthly.size}달)]")
-            append(monthlyLines)
-        }
+        val description =
+            buildString {
+                appendLine("[주별 추이 (최근 ${weekly.size}주)]")
+                appendLine(weeklyLines)
+                appendLine()
+                appendLine("[월별 추이 (최근 ${monthly.size}달)]")
+                append(monthlyLines)
+            }
 
         return AlertEvent(
             source = AlertSource.OCI_COST,
@@ -99,5 +107,4 @@ class OciCostEvaluator(
             team = null,
         )
     }
-
 }

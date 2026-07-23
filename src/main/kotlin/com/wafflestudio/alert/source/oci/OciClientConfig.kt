@@ -28,7 +28,8 @@ class OciClientConfig {
         provider: BasicAuthenticationDetailsProvider,
         props: OciProperties,
     ): UsageapiClient =
-        UsageapiClient.builder()
+        UsageapiClient
+            .builder()
             .region(Region.fromRegionId(props.region))
             .build(provider)
 }

@@ -19,7 +19,7 @@ class OciCostScheduler(
     fun checkSpike() {
         try {
             val daily = adapter.fetchDailyCosts(14)
-            val event = evaluator.evaluateSpike(daily) ?: return  // 정상 범위면 null -> 알림 없음
+            val event = evaluator.evaluateSpike(daily) ?: return // 정상 범위면 null -> 알림 없음
             ingestionService.ingest(event)
         } catch (e: Exception) {
             log.error("OCI cost spike check failed", e)

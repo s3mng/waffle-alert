@@ -18,10 +18,10 @@ import java.util.Date
 //   - 비용 데이터는 최대 48시간 지연 가능 -> 실시간 아님, 추세/이상 탐지용
 
 data class CostBucket(
-    val periodStart : Instant,
-    val amount : BigDecimal,
+    val periodStart: Instant,
+    val amount: BigDecimal,
     val currency: String,
-    )
+)
 
 data class WeeklyCost(
     val weekStart: LocalDate,
@@ -31,60 +31,65 @@ data class WeeklyCost(
 
 @Component
 class OciCostAdapter(
-    private val usageapiClient : UsageapiClient,
-    private val ociProperties: OciProperties
+    private val usageapiClient: UsageapiClient,
+    private val ociProperties: OciProperties,
 ) {
-    //최근 일별 비용
+    // 최근 일별 비용
     fun fetchDailyCosts(days: Long): List<CostBucket> {
-        require (days in 1..90){ "최대 90일 조회 가능"}
+        require(days in 1..90) { "최대 90일 조회 가능" }
         val end = Instant.now().truncatedTo(ChronoUnit.DAYS)
         val start = end.minus(days, ChronoUnit.DAYS)
 
-        return summarize(start,end, RequestSummarizedUsagesDetails.Granularity.Daily)
+        return summarize(start, end, RequestSummarizedUsagesDetails.Granularity.Daily)
     }
 
-
     fun fetchWeeklyCosts(weeks: Long): List<WeeklyCost> {
-        require(weeks in 1..12) { "최대 12주"}
+        require(weeks in 1..12) { "최대 12주" }
 
         val daily = fetchDailyCosts((weeks + 1) * 7)
         val today = LocalDate.now(ZoneOffset.UTC)
 
         return daily
             .groupBy {
-                it.periodStart.atZone(ZoneOffset.UTC).toLocalDate()
+                it.periodStart
+                    .atZone(ZoneOffset.UTC)
+                    .toLocalDate()
                     .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            }
-            .filter { (weekStart, _) -> weekStart.plusDays(6).isBefore(today) } // 7일 다 지난 완결된 주만
+            }.filter { (weekStart, _) -> weekStart.plusDays(6).isBefore(today) } // 7일 다 지난 완결된 주만
             .map { (weekStart, days) ->
                 WeeklyCost(
                     weekStart = weekStart,
                     amount = days.sumOf { it.amount },
                     currency = days.firstOrNull()?.currency ?: "",
                 )
-            }
-            .sortedBy { it.weekStart }
+            }.sortedBy { it.weekStart }
             .takeLast(weeks.toInt())
     }
 
     fun fetchMonthlyCosts(months: Long): List<CostBucket> {
-        require(months in 1..12) { "최대 12달"}
+        require(months in 1..12) { "최대 12달" }
 
         val thisMonth = YearMonth.now(ZoneOffset.UTC)
 
         val end = thisMonth.atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant()
-        val start = thisMonth.minusMonths(months).atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant()
+        val start =
+            thisMonth
+                .minusMonths(months)
+                .atDay(1)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
 
-        return summarize(start,end, RequestSummarizedUsagesDetails.Granularity.Monthly)
+        return summarize(start, end, RequestSummarizedUsagesDetails.Granularity.Monthly)
     }
 
     private fun summarize(
         start: Instant,
         end: Instant,
         granularity: RequestSummarizedUsagesDetails.Granularity,
-    ): List<CostBucket>{
+    ): List<CostBucket> {
         val details =
-            RequestSummarizedUsagesDetails.builder()
+            RequestSummarizedUsagesDetails
+                .builder()
                 .tenantId(ociProperties.tenantId)
                 .timeUsageStarted(Date.from(start))
                 .timeUsageEnded(Date.from(end))
@@ -93,20 +98,21 @@ class OciCostAdapter(
                 .build()
 
         val request =
-            RequestSummarizedUsagesRequest.builder()
+            RequestSummarizedUsagesRequest
+                .builder()
                 .requestSummarizedUsagesDetails(details)
                 .build()
 
-        return usageapiClient.requestSummarizedUsages(request)
+        return usageapiClient
+            .requestSummarizedUsages(request)
             .usageAggregation
             .items
             .map {
                 CostBucket(
                     periodStart = it.timeUsageStarted.toInstant(),
                     amount = it.computedAmount ?: BigDecimal.ZERO,
-                    currency = it.currency?:"",
+                    currency = it.currency ?: "",
                 )
-            }
-            .sortedBy { it.periodStart }
+            }.sortedBy { it.periodStart }
     }
 }
