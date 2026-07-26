@@ -15,6 +15,8 @@ class OciCostScheduler(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
+    // 실행 시각은 KST이고, 비용의 일별 집계 경계는 OCI Usage API 기준인 UTC를 사용한다.
+    // 09:00 KST는 00:00 UTC이므로 별도의 날짜 변환 없이 UTC 일별 비용을 조회한다.
     @Scheduled(cron = "0 0 9 * * *", zone = "Asia/Seoul")
     fun checkSpike() {
         try {

@@ -13,6 +13,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 // TODO: OCI 비용 threshold / 증가율(7일 평균 대비) 판단 -> AlertEvent
 
@@ -25,6 +26,7 @@ class OciCostEvaluator(
 
     fun evaluateSpike(daily: List<CostBucket>): AlertEvent? {
         val spike = props.spike
+        // 비용 정착 대기일 + 판단 대상 1일 + 직전 7일 baseline
         val needed = spike.settleLagDays + 1 + 7
 
         if (daily.size < needed) {
@@ -32,8 +34,22 @@ class OciCostEvaluator(
             return null
         }
 
-        val settled = daily.dropLast(spike.settleLagDays) // 애매한거 삭제. 어제꺼는 데이터가 불완전할수도..
-        val target = settled.last() // 그저께꺼 판단
+        val recent = daily.sortedBy { it.periodStart }.takeLast(needed)
+        val dates =
+            recent.map {
+                it.periodStart.atZone(ZoneOffset.UTC).toLocalDate()
+            }
+        val isConsecutive =
+            dates.zipWithNext().all { (previous, next) ->
+                ChronoUnit.DAYS.between(previous, next) == 1L
+            }
+        if (!isConsecutive) {
+            log.warn("OCI 비용 데이터의 UTC 날짜가 연속적이지 않아 스파이크 판단을 건너뜁니다: {}", dates)
+            return null
+        }
+
+        val settled = recent.dropLast(spike.settleLagDays)
+        val target = settled.last()
 
         val baseline = settled.dropLast(1).takeLast(7)
 
